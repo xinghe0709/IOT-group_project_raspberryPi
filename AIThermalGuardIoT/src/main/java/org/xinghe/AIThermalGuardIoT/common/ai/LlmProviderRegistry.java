@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.springaicommunity.agent.tools.FileSystemTools;
 import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.definition.DefaultToolDefinition;
 import org.springframework.ai.tool.method.MethodToolCallback;
 
 /**
@@ -138,10 +139,21 @@ public class LlmProviderRegistry {
     private static List<ToolCallback> createFileSystemToolCallbacks(FileSystemTools fsTools) {
         return Arrays.stream(FileSystemTools.class.getDeclaredMethods())
             .filter(m -> m.isAnnotationPresent(Tool.class))
-            .<ToolCallback>map(m -> MethodToolCallback.builder()
-                .toolObject(fsTools)
-                .toolMethod(m)
-                .build())
+            .<ToolCallback>map(m -> {
+                Tool toolAnn = m.getAnnotation(Tool.class);
+                String name = !toolAnn.name().isEmpty() ? toolAnn.name() : m.getName();
+                String desc = !toolAnn.description().isEmpty() ? toolAnn.description() : m.getName();
+                var toolDef = DefaultToolDefinition.builder()
+                    .name(name)
+                    .description(desc)
+                    .inputSchema("{\"type\":\"object\",\"properties\":{}}")
+                    .build();
+                return MethodToolCallback.builder()
+                    .toolDefinition(toolDef)
+                    .toolObject(fsTools)
+                    .toolMethod(m)
+                    .build();
+            })
             .toList();
     }
 
