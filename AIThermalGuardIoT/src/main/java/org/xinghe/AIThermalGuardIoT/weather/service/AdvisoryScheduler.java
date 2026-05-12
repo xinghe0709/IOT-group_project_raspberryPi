@@ -71,7 +71,11 @@ public class AdvisoryScheduler {
             broadcastService.broadcastAdvisory(mappingService.toDto(advisory));
 
         } catch (Exception e) {
-            log.error("Failed to generate advisory: {}", e.getMessage(), e);
+            Throwable root = e;
+            while (root.getCause() != null && root.getCause() != root) {
+                root = root.getCause();
+            }
+            log.error("Failed to generate advisory: {} (root: {})", e.getMessage(), root.toString(), e);
         }
     }
 

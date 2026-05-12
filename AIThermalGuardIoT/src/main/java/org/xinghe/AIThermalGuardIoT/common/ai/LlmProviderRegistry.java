@@ -111,10 +111,14 @@ public class LlmProviderRegistry {
             builder.defaultToolCallbacks(visaSkillsToolCallback);
         }
         if (fileSystemTools != null) {
-            List<ToolCallback> fsCallbacks = createFileSystemToolCallbacks(fileSystemTools);
-            builder.defaultToolCallbacks(fsCallbacks.toArray(new ToolCallback[0]));
-            log.info("[LlmProviderRegistry] Registered {} FileSystemTools callbacks for provider {}",
-                fsCallbacks.size(), providerId);
+            try {
+                List<ToolCallback> fsCallbacks = createFileSystemToolCallbacks(fileSystemTools);
+                builder.defaultToolCallbacks(fsCallbacks.toArray(new ToolCallback[0]));
+                log.info("[LlmProviderRegistry] Registered {} FileSystemTools callbacks for provider {}",
+                    fsCallbacks.size(), providerId);
+            } catch (Exception e) {
+                log.warn("[LlmProviderRegistry] Failed to register FileSystemTools callbacks: {}", e.getMessage());
+            }
         }
         List<Advisor> advisors = buildDefaultAdvisors(providerId);
         if (!advisors.isEmpty()) {
