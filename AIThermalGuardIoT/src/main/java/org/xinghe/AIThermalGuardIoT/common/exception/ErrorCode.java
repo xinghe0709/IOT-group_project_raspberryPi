@@ -79,7 +79,13 @@ public enum ErrorCode {
     MODULE_NOT_FOUND(11008, "模块不存在"),
     VOICE_CONFIG_READ_FAILED(11009, "读取语音服务配置失败"),
     VOICE_CONFIG_WRITE_FAILED(11010, "写入语音服务配置失败"),
-    VOICE_CONFIG_TEST_FAILED(11011, "语音服务连通性测试失败");
+    VOICE_CONFIG_TEST_FAILED(11011, "语音服务连通性测试失败"),
+
+    // ========== 气象站模块错误 12xxx ==========
+    WEATHER_RECORD_SAVE_FAILED(12001, "气象数据保存失败"),
+    WEATHER_ADVISORY_GENERATION_FAILED(12002, "AI环境分析生成失败"),
+    WEATHER_ADVISORY_NOT_FOUND(12003, "环境建议不存在"),
+    WEATHER_STATION_INVALID(12004, "气象站标识无效");
 
     private final Integer code;
     private final String message;

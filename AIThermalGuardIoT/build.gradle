@@ -25,7 +25,8 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
 
-    // PostgreSQL
+    // JPA (Hibernate) + PostgreSQL
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'org.postgresql:postgresql'
 
     // H2 Database for testing
