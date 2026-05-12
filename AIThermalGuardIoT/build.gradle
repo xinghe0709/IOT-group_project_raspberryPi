@@ -88,6 +88,26 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // 加载 .env 文件（与 bootRun 保持一致）
+    def envFile = rootProject.file('.env')
+    if (envFile.exists()) {
+        envFile.eachLine { line ->
+            def trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith('#')) {
+                return
+            }
+            def eq = trimmed.indexOf('=')
+            if (eq <= 0) {
+                return
+            }
+            def key = trimmed.substring(0, eq).trim()
+            def val = trimmed.substring(eq + 1).trim()
+            if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+                val = val.substring(1, val.length() - 1)
+            }
+            environment key, val
+        }
+    }
 }
 
 tasks.named('bootRun') {
