@@ -86,6 +86,10 @@ dependencies {
 }
 
 
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
 tasks.named('bootRun') {
     // JVM 编码配置（stdout/stderr：JDK 18+，避免控制台 PrintStream 与 Logback UTF-8 不一致）
     jvmArgs = [
