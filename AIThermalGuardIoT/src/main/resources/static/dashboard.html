@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pi Weather — 环境观测站</title>
+
+<!-- Fonts: DM Mono (nav/title), Space Mono (data), Crimson Text (advisory) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Space+Mono:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+<!-- Chart.js 4.x -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+<style>
+/* ── Variables ── */
+:root {
+  --bg:             #1a1c1e;
+  --sidebar-bg:     #1c1d21;
+  --card-bg:        #242629;
+  --card-hover:     #2a2c30;
+  --border-subtle:  #2e3035;
+  --text:           #e8d5c4;
+  --text-secondary: #9b8c7d;
+  --text-muted:     #5d4f42;
+
+  --temp:    #ff6b35;
+  --humid:   #4ecdc4;
+  --press:   #f7dc6f;
+  --light:   #ffeaa7;
+
+  --risk-low:      #27ae60;
+  --risk-moderate: #f39c12;
+  --risk-high:     #e67e22;
+  --risk-extreme:  #e74c3c;
+
+  --sidebar-width: 200px;
+  --radius: 8px;
+}
+
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Crimson Text', Georgia, serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  padding: 28px 0 20px 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  padding: 0 20px 24px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 20px;
+}
+
+.sidebar-logo .logo-icon {
+  font-family: 'DM Mono', 'Courier New', monospace;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--temp);
+  letter-spacing: 0.02em;
+}
+
+.sidebar-logo .logo-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.sidebar-nav { list-style: none; padding: 0 12px; flex: 1; }
+
+.sidebar-nav li { margin-bottom: 2px; }
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  border-left: 2px solid transparent;
+  margin-left: -2px;
+}
+
+.sidebar-nav a:hover {
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+}
+
+.sidebar-nav a.active {
+  color: var(--text);
+  background: rgba(255,107,53,0.08);
+  border-left-color: var(--temp);
+}
+
+.sidebar-nav a .nav-marker { font-size: 10px; }
+
+.sidebar-footer {
+  padding: 16px 20px 0 20px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+/* ── Main Area ── */
+.main {
+  margin-left: var(--sidebar-width);
+  padding: 28px 32px 40px 32px;
+  max-width: 1100px;
+}
+
+/* ── Page Sections ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── Header ── */
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.station-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: 0.03em;
+}
+
+.station-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+}
+
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--risk-low);
+  position: relative;
+}
+
+.status-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--risk-low);
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* ── Alerts Bar ── */
+.alerts-bar {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(231,76,60,0.12);
+  border: 1px solid rgba(231,76,60,0.25);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  color: var(--risk-extreme);
+}
+
+.alerts-bar.has-alerts { display: flex; }
+
+.alerts-bar .alerts-icon { font-size: 15px; }
+
+/* ── Reading Cards Grid ── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+@media (max-width: 900px) {
+  .cards-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .cards-grid { grid-template-columns: 1fr; }
+}
+
+.reading-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s ease;
+}
+
+.reading-card:hover { background: var(--card-hover); }
+
+.reading-card .card-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.reading-card .card-value {
+  font-family: 'Space Mono', monospace;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.reading-card .card-unit {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.reading-card .card-stripe {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.reading-card.temp .card-stripe  { background: var(--temp); }
+.reading-card.humid .card-stripe { background: var(--humid); }
+.reading-card.press .card-stripe { background: var(--press); }
+.reading-card.light .card-stripe { background: var(--light); }
+.reading-card.temp .card-value  { color: var(--temp); }
+.reading-card.humid .card-value { color: var(--humid); }
+.reading-card.press .card-value { color: var(--press); }
+.reading-card.light .card-value { color: var(--light); }
+
+/* ── Chart Card ── */
+.chart-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 22px;
+}
+
+.chart-card .chart-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 280px;
+}
+
+.chart-wrap canvas { width: 100% !important; height: 100% !important; }
+
+/* ── Advisory Card ── */
+.advisory-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin-bottom: 22px;
+  border-left: 4px solid var(--border-subtle);
+  transition: border-color 0.3s ease;
+}
+
+.advisory-card .advisory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.advisory-card .advisory-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.advisory-card .risk-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.risk-badge.risk-LOW      { background: rgba(39,174,96,0.15);  color: var(--risk-low); }
+.risk-badge.risk-MODERATE { background: rgba(243,156,18,0.15); color: var(--risk-moderate); }
+.risk-badge.risk-HIGH     { background: rgba(230,126,34,0.15); color: var(--risk-high); }
+.risk-badge.risk-EXTREME  { background: rgba(231,76,60,0.15);  color: var(--risk-extreme); }
+
+.advisory-card.risk-LOW      { border-left-color: var(--risk-low); }
+.advisory-card.risk-MODERATE { border-left-color: var(--risk-moderate); }
+.advisory-card.risk-HIGH     { border-left-color: var(--risk-high); }
+.advisory-card.risk-EXTREME  { border-left-color: var(--risk-extreme); }
+
+.advisory-card .advisory-summary {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+.advisory-card .advisory-recommendation {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 15px;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.advisory-card .advisory-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* ── Advisory History Page ── */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  border-left: 4px solid var(--border-subtle);
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.3s ease;
+}
+
+.history-card:hover { background: var(--card-hover); }
+
+.history-card.risk-LOW      { border-left-color: var(--risk-low); }
+.history-card.risk-MODERATE { border-left-color: var(--risk-moderate); }
+.history-card.risk-HIGH     { border-left-color: var(--risk-high); }
+.history-card.risk-EXTREME  { border-left-color: var(--risk-extreme); }
+
+.history-card .hc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-card .hc-summary {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 16px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.history-card .hc-expanded {
+  display: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.history-card.expanded .hc-expanded { display: block; }
+
+.history-card .hc-recommendation {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 15px;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+
+.history-card .hc-readings {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.load-more-wrap {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.load-more-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 10px 28px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.2s ease;
+}
+
+.load-more-btn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.load-more-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  top: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2a2c30 0%, #1c1d21 100%);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  max-width: 520px;
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 15px;
+  color: var(--text);
+  transition: top 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.toast.show { top: 16px; }
+
+.toast .toast-icon {
+  flex-shrink: 0;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+
+.toast .toast-close {
+  background: none; border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  margin-left: auto;
+  padding: 2px 6px;
+  font-family: inherit;
+  line-height: 1;
+}
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">PiWeather</div>
+    <div class="logo-sub">Raspberry Pi I2C Station</div>
+  </div>
+
+  <ul class="sidebar-nav">
+    <li><a href="#" data-page="dashboard" class="active">
+      <span class="nav-marker">&#9670;</span> 仪表盘
+    </a></li>
+    <li><a href="#" data-page="history">
+      <span class="nav-marker">&#9671;</span> 环境建议
+    </a></li>
+  </ul>
+
+  <div class="sidebar-footer">
+    v1.0 &middot; connected
+  </div>
+</nav>
+
+<!-- ── Main Content ── -->
+<main class="main">
+
+  <!-- ── Dashboard Page ── -->
+  <section class="page active" id="page-dashboard">
+
+    <div class="dashboard-header">
+      <h1 class="station-title">pi-weather-01</h1>
+      <div class="station-status">
+        <span class="status-dot"></span>
+        <span>实时连接中</span>
+      </div>
+    </div>
+
+    <!-- Alerts bar -->
+    <div class="alerts-bar" id="alerts-bar">
+      <span class="alerts-icon">&#9888;</span>
+      <span id="alerts-text"></span>
+    </div>
+
+    <!-- Reading Cards -->
+    <div class="cards-grid">
+      <div class="reading-card temp">
+        <div class="card-stripe"></div>
+        <div class="card-label">Temperature &middot; 温度</div>
+        <div class="card-value" id="val-temp">--</div>
+        <div class="card-unit">&deg;C</div>
+      </div>
+      <div class="reading-card humid">
+        <div class="card-stripe"></div>
+        <div class="card-label">Humidity &middot; 湿度</div>
+        <div class="card-value" id="val-humid">--</div>
+        <div class="card-unit">%</div>
+      </div>
+      <div class="reading-card press">
+        <div class="card-stripe"></div>
+        <div class="card-label">Pressure &middot; 气压</div>
+        <div class="card-value" id="val-press">--</div>
+        <div class="card-unit">hPa</div>
+      </div>
+      <div class="reading-card light">
+        <div class="card-stripe"></div>
+        <div class="card-label">Ambient Light &middot; 光照</div>
+        <div class="card-value" id="val-lux">--</div>
+        <div class="card-unit">lux</div>
+      </div>
+    </div>
+
+    <!-- Trend Chart -->
+    <div class="chart-card">
+      <div class="chart-title">Combined Trend &middot; 四合一线图</div>
+      <div class="chart-wrap">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Latest Advisory -->
+    <div class="advisory-card" id="latest-advisory">
+      <div class="advisory-header">
+        <div class="advisory-title">Latest Advisory &middot; 最新建议</div>
+        <span class="risk-badge risk-LOW" id="advisory-risk">--</span>
+      </div>
+      <div class="advisory-summary" id="advisory-summary">等待分析结果&hellip;</div>
+      <div class="advisory-recommendation" id="advisory-recommendation"></div>
+      <div class="advisory-time" id="advisory-time"></div>
+    </div>
+
+  </section>
+
+  <!-- ── Advisory History Page ── -->
+  <section class="page" id="page-history">
+    <div class="dashboard-header">
+      <h1 class="station-title">Environmental Advisories</h1>
+      <div class="station-status">环境建议历史</div>
+    </div>
+
+    <div class="history-list" id="history-list">
+      <div class="history-card">
+        <div class="hc-summary" style="color:var(--text-secondary); font-style:italic">
+          Loading advisory history&hellip;
+        </div>
+      </div>
+    </div>
+
+    <div class="load-more-wrap" id="load-more-wrap" style="display:none;">
+      <button class="load-more-btn" id="load-more-btn">Load More &middot; 加载更多</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toast-dot"></span>
+  <span id="toast-msg"></span>
+  <button class="toast-close" id="toast-close">&times;</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
