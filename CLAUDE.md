@@ -58,9 +58,11 @@ Spring Boot 4.0.1, Java 21, Gradle 9.4.1. PostgreSQL (JPA) + Redis (Redisson 4.0
 cd AIThermalGuardIoT
 ./gradlew build            # 构建
 ./gradlew bootRun           # 启动（自动加载 .env，监听 8080）
-./gradlew test              # 全部测试
+./gradlew test              # 全部测试（自动加载 .env）
 ./gradlew test --tests "org.xinghe.AIThermalGuardIoT.SomeTest"
 ```
+
+**前置依赖**：PostgreSQL (localhost:5432) + Redis (localhost:6379)。`test` 和 `bootRun` 都自动解析 `.env` 注入 JVM 环境变量。
 
 ### 核心组件速查
 
@@ -72,18 +74,26 @@ cd AIThermalGuardIoT
 | `RedisService` | `infrastructure/redis/` | KV/Hash/分布式锁/Stream 消息队列/原子计数器。Stream 消息体为 `Map<String, String>` |
 | `AbstractStreamConsumer<T>` | `common/async/` | Redis Stream 消费模板，自动处理组创建、轮询、ACK、重试（最多3次）、失败落库。`@PostConstruct` 启动守护线程 |
 | `AbstractStreamProducer<T>` | `common/async/` | Redis Stream 生产模板，实现 `streamKey()`/`buildMessage()` 即可入队 |
-| `FileStorageService` | `infrastructure/file/` | S3 兼容上传/下载/删除，中文文件名自动转拼音，按日期分目录。`StorageInitializer` 启动时确保 Bucket 存在 |
+| `FileStorageService` | `infrastructure/file/` | S3 兼容上传/下载/删除，中文文件名自动转拼音，按日期分目录。`StorageInitializer` 启动时 S3 不可用会降级 warn |
 | `CorsConfig` | `common/config/` | 仅对 `/api/**` 生效，来源通过 `app.cors.allowed-origins` 配置 |
 
-`@ConfigurationProperties` 统一用 `app.*` 前缀：`app.ai`（LLM provider）、`app.storage`（S3）、`app.cors`（跨域）。
+`@ConfigurationProperties` 统一 `app.*` 前缀：`app.ai`（LLM provider）、`app.storage`（S3）、`app.cors`（跨域）。
 
 ### Spring AI (`common/ai/`)
 
-基于 Spring AI 2.0.0-M4，OpenAI 兼容接口。`LlmProviderRegistry` 从 `app.ai.providers.*` 构建并缓存 `ChatClient`（默认 deepseek，预置 dashscope/lmstudio/kimi/glm）。每个 ChatClient 挂载 SkillsTool + Advisor 链（ToolCall/MessageMemory/SimpleLogger/Safeguard）。`ApiPathResolver` 处理 baseUrl 带版本号时的路径前缀。`StructuredOutputInvoker` 封装 `BeanOutputConverter`，含自动重试、JSON 修复（未转义引号）、防注入、Micrometer 打点——用法：`invoke(chatClient, systemPrompt, userPrompt, converter, errorCode, errorPrefix, logContext, log)`。
+Spring AI 2.0.0-M4，OpenAI 兼容接口。`LlmProviderRegistry` 从 `app.ai.providers.*` 构建并缓存 `ChatClient`（默认 deepseek，预置 dashscope/lmstudio/kimi/glm）。每个 ChatClient 挂载：
+
+- **SkillsTool** — 从 `classpath:skills/` 加载技能 MD 文件，当前只有占位 skill
+- **FileSystemTools** — 给模型提供文件读写能力的 `@Tool` 方法回调（需显式 `ToolDefinition`）
+- **Advisor 链**：`ToolCallAdvisor` → `MessageChatMemoryAdvisor`（滑动窗口 120 条）→ `SafeGuardAdvisor`（敏感词过滤，最后一道闸门）
+- **Advisor 开关** (`app.ai.advisors.*`)：tool-call/message-memory/safeguard 默认启用，simple-logger 默认关闭
+
+`StructuredOutputInvoker.invoke(chatClient, systemPrompt, userPrompt, converter, errorCode, errorPrefix, logContext, log)` 封装 `BeanOutputConverter`，含自动重试（默认 2 次）、JSON 修复、防注入、Metrics 打点。`ApiPathResolver` 处理 baseUrl 带版本号时的路径前缀。
 
 ### 气象站后端模块
 
 Spec: `docs/superpowers/specs/2026-05-12-weather-backend-design.md`
+Plan: `docs/superpowers/plans/2026-05-12-weather-backend-plan.md`
 
 **数据模型**（JPA Entity, 双表）：
 
@@ -92,10 +102,21 @@ Spec: `docs/superpowers/specs/2026-05-12-weather-backend-design.md`
 | `weather_records` | id, station_id, temperature/humidity/pressure/lux, alerts(TEXT), created_at | 每 30s 一条 |
 | `weather_advisories` | id, record_id(FK nullable), risk_level, summary, recommendation, raw_response, created_at | 每 2min 一条，仅被分析的 record 有关联 |
 
-**API**：`POST /api/weather/record`（接收数据），`GET /api/weather/advisories?page=1&size=20`（历史建议），`GET /api/weather/stream`（SSE，事件：`init`/`update`/`advisory`），`GET /dashboard.html`（静态面板）。
+**API**：`POST /api/weather/record`（接收），`GET /api/weather/advisories?page=1&size=20`（历史建议分页），`GET /api/weather/stream`（SSE：`init`/`update`/`advisory`），`GET /dashboard.html`（静态面板）。
 
-**LLM 分析**：`@Scheduled` 每 2min 查最新 record → Prompt Template（拟人化角色 + 口语约定）→ `StructuredOutputInvoker.invoke()` → `BeanOutputConverter<AdvisoryOutput>` → 写 `weather_advisories` → SSE 推送 `advisory` 事件。
+**LLM 分析**：`AdvisoryScheduler` `@Scheduled(2min)` 查最新 record → Prompt Template（拟人化角色 + 口语约定）→ `StructuredOutputInvoker.invoke()` → `BeanOutputConverter<AdvisoryOutput>` → 写 `weather_advisories` → SSE 推送 `advisory`。模型 `deepseek-v4-flash`（非 reasoning model，直接输出 JSON）。
 
-**前端**：Chart.js 四合一线图（双 Y 轴，温度/湿度/气压左轴线性，光照右轴对数）+ 侧栏导航（仪表盘/建议历史）。SSE 实时更新图表 + Toast 通知。字体 DM Mono/Space Mono/Crimson Text，暖色系配色。
+**前端**：Chart.js 四合一线图（双 Y 轴：左线性 温度/湿度/气压，右对数 光照）+ 侧栏导航（Dashboard / Advisories）+ SSE 实时更新 + Toast 通知。字体 DM Mono / Space Mono / Crimson Text，暖色系配色。
+
+**测试**：
+
+| 测试 | 类型 | 说明 |
+|------|------|------|
+| `WeatherControllerTest` | 集成 | POST 接口参数校验（2 tests） |
+| `AdvisorySchedulerTest` | 单元 (mock) | 调度器逻辑：正常/跳过/失败/Prompt 模板（4 tests） |
+| `AdvisoryLlmIntegrationTest` | 集成 | 真实 LLM 调用链验证 |
+| `AdvisoryPromptTemplateTest` | 集成 | 5 种天气场景验证 Prompt 输出质量 |
+| `AdvisoryChatClientSimpleTest` | 集成 | ChatClient 连通性冒烟测试 |
+| `AdvisoryLlmConnectivityTest` | 诊断 (main) | API key + 网络诊断，不依赖 Spring 上下文 |
 
 
