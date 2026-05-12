@@ -72,6 +72,8 @@ spring:
 
   # Spring AI 配置（chat + embedding 统一由 app.ai.providers 驱动，不使用自动配置）
   ai:
+    openai:
+      api-key: unused  # 使用自定义 LlmProviderRegistry，非 Spring AI 自动配置，此处仅消除自动配置报错
     # 禁用自动重试机制，让异常立即返回
     retry:
       max-attempts: 1  # 不重试，失败立即返回
@@ -123,7 +125,7 @@ app:
       deepseek:
         base-url: https://api.deepseek.com
         api-key: ${PROVIDER_DEEPSEEK_API_KEY}
-        model: ${PROVIDER_DEEPSEEK_MODEL:deepseek-v4-pro}
+        model: ${PROVIDER_DEEPSEEK_MODEL:deepseek-v4-flash}
         supports-embedding: false
       # 智谱 AI / GLM（OpenAI 兼容） https://open.bigmodel.cn/
       glm:

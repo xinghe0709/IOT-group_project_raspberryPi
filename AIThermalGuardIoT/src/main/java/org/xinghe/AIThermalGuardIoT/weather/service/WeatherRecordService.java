@@ -22,7 +22,7 @@ public class WeatherRecordService {
 
     private final WeatherRecordRepository repository;
     private final SseBroadcastService broadcastService;
-    private final ObjectMapper objectMapper;
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
     public WeatherRecordResponse saveRecord(WeatherRecordRequest request) {

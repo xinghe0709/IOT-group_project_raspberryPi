@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pi Weather — 环境观测站</title>
+<title>Pi Weather — Environmental Station</title>
 
 <!-- Fonts: DM Mono (nav/title), Space Mono (data), Crimson Text (advisory) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -522,10 +522,10 @@ body {
 
   <ul class="sidebar-nav">
     <li><a href="#" data-page="dashboard" class="active">
-      <span class="nav-marker">&#9670;</span> 仪表盘
+      <span class="nav-marker">&#9670;</span> Dashboard
     </a></li>
     <li><a href="#" data-page="history">
-      <span class="nav-marker">&#9671;</span> 环境建议
+      <span class="nav-marker">&#9671;</span> Advisories
     </a></li>
   </ul>
 
@@ -544,7 +544,7 @@ body {
       <h1 class="station-title">pi-weather-01</h1>
       <div class="station-status">
         <span class="status-dot"></span>
-        <span>实时连接中</span>
+        <span>Live</span>
       </div>
     </div>
 
@@ -558,25 +558,25 @@ body {
     <div class="cards-grid">
       <div class="reading-card temp">
         <div class="card-stripe"></div>
-        <div class="card-label">Temperature &middot; 温度</div>
+        <div class="card-label">Temperature</div>
         <div class="card-value" id="val-temp">--</div>
         <div class="card-unit">&deg;C</div>
       </div>
       <div class="reading-card humid">
         <div class="card-stripe"></div>
-        <div class="card-label">Humidity &middot; 湿度</div>
+        <div class="card-label">Humidity</div>
         <div class="card-value" id="val-humid">--</div>
         <div class="card-unit">%</div>
       </div>
       <div class="reading-card press">
         <div class="card-stripe"></div>
-        <div class="card-label">Pressure &middot; 气压</div>
+        <div class="card-label">Pressure</div>
         <div class="card-value" id="val-press">--</div>
         <div class="card-unit">hPa</div>
       </div>
       <div class="reading-card light">
         <div class="card-stripe"></div>
-        <div class="card-label">Ambient Light &middot; 光照</div>
+        <div class="card-label">Ambient Light</div>
         <div class="card-value" id="val-lux">--</div>
         <div class="card-unit">lux</div>
       </div>
@@ -584,7 +584,7 @@ body {
 
     <!-- Trend Chart -->
     <div class="chart-card">
-      <div class="chart-title">Combined Trend &middot; 四合一线图</div>
+      <div class="chart-title">Combined Trend &middot; 4-in-1 Trend</div>
       <div class="chart-wrap">
         <canvas id="trendChart"></canvas>
       </div>
@@ -593,10 +593,10 @@ body {
     <!-- Latest Advisory -->
     <div class="advisory-card" id="latest-advisory">
       <div class="advisory-header">
-        <div class="advisory-title">Latest Advisory &middot; 最新建议</div>
+        <div class="advisory-title">Latest Advisory &middot; Advisory</div>
         <span class="risk-badge risk-LOW" id="advisory-risk">--</span>
       </div>
-      <div class="advisory-summary" id="advisory-summary">等待分析结果&hellip;</div>
+      <div class="advisory-summary" id="advisory-summary">Waiting for analysis&hellip;</div>
       <div class="advisory-recommendation" id="advisory-recommendation"></div>
       <div class="advisory-time" id="advisory-time"></div>
     </div>
@@ -607,7 +607,7 @@ body {
   <section class="page" id="page-history">
     <div class="dashboard-header">
       <h1 class="station-title">Environmental Advisories</h1>
-      <div class="station-status">环境建议历史</div>
+      <div class="station-status">Advisory History</div>
     </div>
 
     <div class="history-list" id="history-list">
@@ -619,7 +619,7 @@ body {
     </div>
 
     <div class="load-more-wrap" id="load-more-wrap" style="display:none;">
-      <button class="load-more-btn" id="load-more-btn">Load More &middot; 加载更多</button>
+      <button class="load-more-btn" id="load-more-btn">Load More &middot; Load More</button>
     </div>
   </section>
 

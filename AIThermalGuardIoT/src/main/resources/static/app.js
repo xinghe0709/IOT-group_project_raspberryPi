@@ -101,13 +101,13 @@
   function fmtTime(isoStr) {
     if (!isoStr) return '--';
     var d = new Date(isoStr);
-    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
   function fmtTimeFull(isoStr) {
     if (!isoStr) return '--';
     var d = new Date(isoStr);
-    return d.toLocaleString('zh-CN', {
+    return d.toLocaleString('en-US', {
       month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit', second: '2-digit'
     });
@@ -432,7 +432,7 @@
         if (advisories.length === 0 && page === 1) {
           historyList.innerHTML = '<div class="history-card">' +
             '<div class="hc-summary" style="color:var(--text-secondary); font-style:italic">' +
-            '暂无环境建议记录' +
+            'No advisory records yet' +
             '</div></div>';
           loadMoreWrap.style.display = 'none';
           return;
@@ -456,7 +456,7 @@
         if (page === 1) {
           historyList.innerHTML = '<div class="history-card">' +
             '<div class="hc-summary" style="color:var(--risk-extreme)">' +
-            '加载失败，请检查后端连接' +
+            'Failed to load — check backend' +
             '</div></div>';
         }
       });
