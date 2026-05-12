@@ -1,0 +1,178 @@
+#AI组件通用配置
+
+logging:
+  charset:
+    console: UTF-8
+    file: UTF-8
+
+server:
+  port: 8080
+  # 明确指定HTTP响应编码
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+# SpringDoc OpenAPI / Swagger配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  packages-to-scan: org.xinghe.visahelper
+
+spring:
+  application:
+    name: visa-helper
+
+  # 启用虚拟线程 (Java 21+)
+  # 显著提升 I/O 密集型场景的并发能力，特别适合 AI 调用和 SSE 长连接
+  threads:
+    virtual:
+      enabled: true
+
+  # PostgreSQL数据库配置
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:visa_helper}
+    username: ${POSTGRES_USER:postgres}
+    # 与根目录 docker-compose.yml 中 postgres 服务默认一致（本地只起依赖容器 + bootRun 时无需改）
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update #首次启动用 create，表创建成功后，改回 update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB  # 支持知识库上传（简历限制在业务层检查）
+      max-request-size: 50MB
+
+
+  # Redisson配置 (使用 spring.redis.redisson，参考官方文档)
+  redis:
+    redisson:
+      config: |
+        singleServerConfig:
+          address: "redis://${REDIS_HOST:localhost}:${REDIS_PORT:6379}"
+          database: 0
+          connectionMinimumIdleSize: 10
+          connectionPoolSize: 64
+          subscriptionConnectionMinimumIdleSize: 1
+          subscriptionConnectionPoolSize: 50
+
+  # Spring AI 配置（chat + embedding 统一由 app.ai.providers 驱动，不使用自动配置）
+  ai:
+    # 禁用自动重试机制，让异常立即返回
+    retry:
+      max-attempts: 1  # 不重试，失败立即返回
+      on-client-errors: false
+    # PostgreSQL Vector Store配置
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1024  # text-embedding-v3实际生成的向量维度
+        initialize-schema: true # 开发环境设置为 true，方便快速启动。生产环境设置为 false，手动管理数据库 schema，避免意外变更。
+        remove-existing-vector-store-table: false  # 保留现有表和数据
+
+# Application custom configuration
+app:
+  ai:
+    default-provider: deepseek
+    default-embedding-provider: dashscope
+    embedding-dimensions: ${APP_AI_EMBEDDING_DIMENSIONS:1024}
+    security:
+      api-key-encryption-key: ${APP_AI_CONFIG_ENCRYPTION_KEY:}
+      require-encryption-key: ${APP_AI_CONFIG_REQUIRE_ENCRYPTION_KEY:false}
+
+
+    agent-utils:
+      skills-root: ${APP_AI_AGENT_UTILS_SKILLS_ROOT:classpath:skills}
+    providers:
+      dashscope:
+        base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+        api-key: ${AI_BAILIAN_API_KEY}
+        model: ${AI_MODEL:qwen3.5-flash}
+        embedding-model: text-embedding-v3
+        embedding-dimensions: 1024
+        supports-embedding: true
+      lmstudio:
+        base-url: http://localhost:1234
+        api-key: ${PROVIDER_LMSTUDIO_API_KEY:lm-studio}
+        model: qwen2.5-7b-instruct
+        supports-embedding: false
+      # ===== 预设 Provider（填完 API Key 后即可使用）=====
+      # Moonshot AI / Kimi（OpenAI 兼容） https://platform.moonshot.cn/
+      kimi:
+        base-url: https://api.moonshot.cn/v1
+        api-key: ${PROVIDER_KIMI_API_KEY:}
+        model: ${PROVIDER_KIMI_MODEL:kimi-latest}
+        temperature: 1
+        supports-embedding: false
+      # DeepSeek（OpenAI 兼容） https://api-docs.deepseek.com/
+      deepseek:
+        base-url: https://api.deepseek.com
+        api-key: ${PROVIDER_DEEPSEEK_API_KEY}
+        model: ${PROVIDER_DEEPSEEK_MODEL:deepseek-v4-pro}
+        supports-embedding: false
+      # 智谱 AI / GLM（OpenAI 兼容） https://open.bigmodel.cn/
+      glm:
+        base-url: https://open.bigmodel.cn/api/coding/paas/v4
+        api-key: ${PROVIDER_GLM_API_KEY:}
+        model: ${PROVIDER_GLM_MODEL:glm-5}
+        embedding-model: embedding-3
+        embedding-dimensions: 1024
+        supports-embedding: true
+    advisors:
+      enabled: ${APP_AI_ADVISORS_ENABLED:true}
+      tool-call-enabled: ${APP_AI_ADVISORS_TOOL_CALL_ENABLED:true}
+      tool-call-conversation-history-enabled: ${APP_AI_ADVISORS_TOOL_CALL_CONVERSATION_HISTORY_ENABLED:false}
+      stream-tool-call-responses: ${APP_AI_ADVISORS_STREAM_TOOL_CALL_RESPONSES:false}
+      message-chat-memory-enabled: ${APP_AI_ADVISORS_MESSAGE_CHAT_MEMORY_ENABLED:true}
+      message-chat-memory-max-messages: ${APP_AI_ADVISORS_MESSAGE_CHAT_MEMORY_MAX_MESSAGES:120}
+      simple-logger-enabled: ${APP_AI_ADVISORS_SIMPLE_LOGGER_ENABLED:false}
+    # 结构化输出重试次数（用于 BeanOutputConverter 解析失败时的业务层重试）
+    structured-max-attempts: ${APP_AI_STRUCTURED_MAX_ATTEMPTS:2}
+    # 重试时是否将上次错误原因注入提示词，帮助模型定向修复输出
+    structured-include-last-error: ${APP_AI_STRUCTURED_INCLUDE_LAST_ERROR:true}
+    # 是否启用“修复型重试提示词”（关闭后每次重试沿用原始 system prompt）
+    structured-retry-use-repair-prompt: ${APP_AI_STRUCTURED_RETRY_USE_REPAIR_PROMPT:true}
+    # 修复型重试提示词中是否追加严格 JSON 指令
+    structured-retry-append-strict-json-instruction: ${APP_AI_STRUCTURED_RETRY_APPEND_STRICT_JSON_INSTRUCTION:true}
+    # 注入到重试提示词中的错误信息最大长度
+    structured-error-message-max-length: ${APP_AI_STRUCTURED_ERROR_MESSAGE_MAX_LENGTH:200}
+    # 是否开启结构化输出调用指标（invocations/attempts/latency）
+    structured-metrics-enabled: ${APP_AI_STRUCTURED_METRICS_ENABLED:true}
+    rag:
+      rewrite:
+        enabled: ${APP_AI_RAG_REWRITE_ENABLED:true}
+      search:
+        short-query-length: ${APP_AI_RAG_SHORT_QUERY_LENGTH:4}
+        topk-short: ${APP_AI_RAG_TOPK_SHORT:20}
+        topk-medium: ${APP_AI_RAG_TOPK_MEDIUM:12}
+        topk-long: ${APP_AI_RAG_TOPK_LONG:8}
+        min-score-short: ${APP_AI_RAG_MIN_SCORE_SHORT:0.18}
+        min-score-default: ${APP_AI_RAG_MIN_SCORE_DEFAULT:0.28}
+
+  # RustFS (S3兼容) 存储配置
+  storage:
+    endpoint: ${APP_STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${APP_STORAGE_ACCESS_KEY}
+    secret-key: ${APP_STORAGE_SECRET_KEY}
+    bucket: ${APP_STORAGE_BUCKET:visa-helper}
+    region: ${APP_STORAGE_REGION:us-east-1}
+
+  # CORS配置 - React前端
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:80}
+
