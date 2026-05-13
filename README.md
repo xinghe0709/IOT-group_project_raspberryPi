@@ -15,8 +15,9 @@ S3-compatible storage (MinIO / RustFS) is optional — the server starts without
 
 ```bash
 # 1. Create the .env file (see below)
-cp .env.example .env
-vim .env   # fill in your API keys
+cd AIThermalGuardIoT
+cp .env.example .env   # if a template exists, or create from scratch
+vim .env                # fill in your API keys
 
 # 2. Build and run
 ./gradlew bootRun
@@ -105,28 +106,31 @@ A shell script in the project root simulates a Raspberry Pi sending data through
 ## Project Structure
 
 ```
-AIThermalGuardIoT/
-├── build.gradle                  # Gradle config, .env loading
-├── .env                          # Secrets (gitignored)
-├── simulate_weather.sh           # Pi simulator script (project root)
-└── src/
-    ├── main/java/org/xinghe/AIThermalGuardIoT/
-    │   ├── common/               # AI, async, exception, result wrappers
-    │   ├── infrastructure/       # Redis, S3, file services
-    │   └── weather/              # Weather module
-    │       ├── controller/       # REST + SSE endpoints
-    │       ├── dto/              # Request/response records
-    │       ├── model/            # JPA entities
-    │       ├── repository/       # Spring Data repos
-    │       └── service/          # Business logic + LLM scheduler
-    └── main/resources/
-        ├── application.yaml      # Spring config
-        └── static/               # Dashboard frontend (HTML/CSS/JS)
+├── README.md                     # This file
+├── simulate_weather.sh           # Pi simulator script
+├── weather_station.py            # Raspberry Pi sensor code
+└── AIThermalGuardIoT/            # Java backend server
+    ├── build.gradle              # Gradle config, .env loading
+    ├── .env                      # Secrets (gitignored)
+    └── src/
+        ├── main/java/org/xinghe/AIThermalGuardIoT/
+        │   ├── common/           # AI, async, exception, result wrappers
+        │   ├── infrastructure/   # Redis, S3, file services
+        │   └── weather/          # Weather module
+        │       ├── controller/   # REST + SSE endpoints
+        │       ├── dto/          # Request/response records
+        │       ├── model/        # JPA entities
+        │       ├── repository/   # Spring Data repos
+        │       └── service/      # Business logic + LLM scheduler
+        └── main/resources/
+            ├── application.yaml  # Spring config
+            └── static/           # Dashboard frontend (HTML/CSS/JS)
 ```
 
 ## Running Tests
 
 ```bash
+cd AIThermalGuardIoT
 ./gradlew test                                    # all tests
 ./gradlew test --tests "org.xinghe.AIThermalGuardIoT.weather.service.AdvisoryPromptTemplateTest"
 ```
