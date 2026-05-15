@@ -738,19 +738,11 @@ body {
       <div class="station-status">Historical Curves</div>
     </div>
 
-    <!-- Time Range Controls -->
-    <div class="trends-controls">
-      <div class="presets">
-        <button class="preset-btn active" data-preset="24h">24h</button>
-        <button class="preset-btn" data-preset="7d">7d</button>
-        <button class="preset-btn" data-preset="30d">30d</button>
-      </div>
-      <div class="custom-range">
-        <input type="datetime-local" id="trends-from" class="date-input" title="From">
-        <span class="range-sep">&mdash;</span>
-        <input type="datetime-local" id="trends-to" class="date-input" title="To">
-        <button class="preset-btn" id="trends-apply">Apply</button>
-      </div>
+    <!-- Preset time range buttons -->
+    <div class="presets" style="margin-bottom:16px;">
+      <button class="preset-btn" data-preset="1h">1h</button>
+      <button class="preset-btn active" data-preset="24h">24h</button>
+      <button class="preset-btn" data-preset="7d">7d</button>
     </div>
 
     <!-- Trend Chart -->

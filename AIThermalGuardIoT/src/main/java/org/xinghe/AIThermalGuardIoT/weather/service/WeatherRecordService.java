@@ -78,14 +78,32 @@ public class WeatherRecordService {
 
         return rows.stream()
             .map(row -> new AggregatedRecordDto(
-                (java.sql.Timestamp) row[0] != null ? ((java.sql.Timestamp) row[0]).toInstant() : null,
-                (Double) row[1],
-                (Double) row[2],
-                (Double) row[3],
-                (Double) row[4],
-                (Long) row[5]
+                toInstant(row[0]),
+                toDouble(row[1]),
+                toDouble(row[2]),
+                toDouble(row[3]),
+                toDouble(row[4]),
+                toLong(row[5])
             ))
             .toList();
+    }
+
+    private Instant toInstant(Object val) {
+        if (val == null) return null;
+        if (val instanceof java.sql.Timestamp ts) return ts.toInstant();
+        if (val instanceof java.time.OffsetDateTime odt) return odt.toInstant();
+        if (val instanceof Instant inst) return inst;
+        return null;
+    }
+
+    private Double toDouble(Object val) {
+        if (val instanceof Number n) return n.doubleValue();
+        return null;
+    }
+
+    private Long toLong(Object val) {
+        if (val instanceof Number n) return n.longValue();
+        return null;
     }
 
     private String resolveAggregation(Instant from, Instant to, String aggregation) {

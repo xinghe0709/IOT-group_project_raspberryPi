@@ -48,7 +48,9 @@
   /* ─── Trends State ─── */
   var trendsChart = null;
   var trendsChartReady = false;
+  var trendsLoading = false;
   var activePreset = '24h';
+  var isTrendsActive = false;
 
   /* ─── Sidebar Navigation ─── */
   $$('.sidebar-nav a').forEach(function (link) {
@@ -62,6 +64,7 @@
 
       // Toggle pages
       $$('.page').forEach(function (p) { p.classList.remove('active'); });
+      isTrendsActive = (page === 'trends');
       if (page === 'dashboard') {
         pageDash.classList.add('active');
       } else if (page === 'trends') {
@@ -398,6 +401,7 @@
       pushChartPoint(record);
       updateReadingCards(record);
       updateAlertsBar(record);
+      if (isTrendsActive) pushTrendsPoint(record);
     } catch (err) {
       console.warn('Failed to parse update event:', err);
     }
@@ -533,8 +537,50 @@
     if (!trendsChartReady) {
       createTrendsChart();
       trendsChartReady = true;
-      loadTrendsFromPreset(activePreset);
     }
+    loadTrendsFromPreset(activePreset);
+  }
+
+  function loadTrendsFromPreset(preset) {
+    activePreset = preset;
+
+    // Update preset button states
+    $$('.preset-btn[data-preset]').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.preset === preset);
+    });
+
+    var now = new Date();
+    var from;
+
+    if (preset === '1h') {
+      from = new Date(now.getTime() - 60 * 60 * 1000);
+    } else if (preset === '7d') {
+      from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else { // 24h default
+      from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    }
+
+    loadTrends(from.toISOString(), now.toISOString());
+  }
+
+  function pushTrendsPoint(record) {
+    if (!trendsChart) return;
+
+    // Append the new point to the trends chart
+    trendsChart.data.labels.push(record.createdAt);
+    trendsChart.data.datasets[0].data.push(record.temperature);
+    trendsChart.data.datasets[1].data.push(record.humidity);
+    trendsChart.data.datasets[2].data.push(record.pressure);
+    trendsChart.data.datasets[3].data.push(record.lux);
+
+    // Trim based on active preset (keep roughly 2x the expected points)
+    var maxPoints = activePreset === '1h' ? 120 : activePreset === '7d' ? 200 : 100;
+    while (trendsChart.data.labels.length > maxPoints) {
+      trendsChart.data.labels.shift();
+      trendsChart.data.datasets.forEach(function (ds) { ds.data.shift(); });
+    }
+
+    trendsChart.update('none');
   }
 
   function createTrendsChart() {
@@ -705,46 +751,79 @@
     });
   }
 
-  function loadTrendsFromPreset(preset) {
-    activePreset = preset;
-
-    // Update preset button states
-    $$('.preset-btn[data-preset]').forEach(function (btn) {
-      btn.classList.toggle('active', btn.dataset.preset === preset);
-    });
-
-    // Clear custom date inputs
-    $('#trends-from').value = '';
-    $('#trends-to').value = '';
-
-    var now = new Date();
-    var from;
-
-    if (preset === '24h') {
-      from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    } else if (preset === '7d') {
-      from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    } else {
-      from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    }
-
-    loadTrends(from.toISOString(), now.toISOString());
-  }
-
   function loadTrends(fromISO, toISO) {
+    if (trendsLoading) return;
+    trendsLoading = true;
+
     fetch('/api/weather/records?from=' + encodeURIComponent(fromISO) + '&to=' + encodeURIComponent(toISO) + '&aggregation=auto')
       .then(function (res) { return res.json(); })
       .then(function (result) {
-        if (!result || !result.data) return;
+        trendsLoading = false;
+        if (!result || result.code !== 200 || !result.data) {
+          renderTrendsError('Failed to load trend data');
+          return;
+        }
+        if (result.data.length === 0) {
+          renderTrendsEmpty();
+          return;
+        }
         renderTrendsData(result.data);
       })
       .catch(function (err) {
+        trendsLoading = false;
         console.warn('Failed to load trends:', err);
+        renderTrendsError('Network error — check backend');
       });
+  }
+
+  function renderTrendsError(msg) {
+    if (!trendsChart) return;
+    trendsChart.data.labels = [];
+    trendsChart.data.datasets.forEach(function (ds) { ds.data = []; });
+    trendsChart.update('none');
+    resetSummary();
+    showChartOverlay(msg, 'var(--risk-extreme)');
+  }
+
+  function renderTrendsEmpty() {
+    if (!trendsChart) return;
+    trendsChart.data.labels = [];
+    trendsChart.data.datasets.forEach(function (ds) { ds.data = []; });
+    trendsChart.update('none');
+    resetSummary();
+    showChartOverlay('No sensor data yet — waiting for Raspberry Pi', 'var(--text-muted)');
+  }
+
+  function showChartOverlay(text, color) {
+    var wrap = $('.trends-chart-wrap');
+    if (!wrap) return;
+    var existing = wrap.querySelector('.chart-overlay');
+    if (existing) existing.remove();
+    var div = document.createElement('div');
+    div.className = 'chart-overlay';
+    div.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;';
+    div.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:14px;color:' + color + '">' + text + '</span>';
+    wrap.style.position = 'relative';
+    wrap.appendChild(div);
+  }
+
+  function hideChartOverlay() {
+    var overlay = document.querySelector('.trends-chart-wrap .chart-overlay');
+    if (overlay) overlay.remove();
+  }
+
+  function resetSummary() {
+    ['sum-temp','sum-humid','sum-press','sum-lux'].forEach(function (id) {
+      $('#' + id).textContent = '-- – --';
+    });
+    ['sum-temp-avg','sum-humid-avg','sum-press-avg','sum-lux-avg'].forEach(function (id) {
+      $('#' + id).textContent = 'Avg: --';
+    });
   }
 
   function renderTrendsData(buckets) {
     if (!trendsChart || !Array.isArray(buckets)) return;
+    hideChartOverlay();
 
     // Clear and repopulate chart data
     var labels = [];
@@ -800,28 +879,11 @@
     avgEl.textContent = 'Avg: ' + avg.toFixed(decimals) + unit;
   }
 
-  /* ─── Trends Event Listeners ─── */
-
-  // Preset buttons
+  /* ─── Trends Preset Buttons ─── */
   $$('.preset-btn[data-preset]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       loadTrendsFromPreset(this.dataset.preset);
     });
-  });
-
-  // Custom date apply
-  $('#trends-apply').addEventListener('click', function () {
-    var fromVal = $('#trends-from').value;
-    var toVal = $('#trends-to').value;
-    if (!fromVal || !toVal) return;
-
-    // Deselect presets
-    activePreset = null;
-    $$('.preset-btn[data-preset]').forEach(function (btn) {
-      btn.classList.remove('active');
-    });
-
-    loadTrends(new Date(fromVal).toISOString(), new Date(toVal).toISOString());
   });
 
 })();
