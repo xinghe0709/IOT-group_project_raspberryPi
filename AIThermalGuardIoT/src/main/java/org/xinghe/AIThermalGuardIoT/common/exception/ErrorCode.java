@@ -85,7 +85,10 @@ public enum ErrorCode {
     WEATHER_RECORD_SAVE_FAILED(12001, "气象数据保存失败"),
     WEATHER_ADVISORY_GENERATION_FAILED(12002, "AI环境分析生成失败"),
     WEATHER_ADVISORY_NOT_FOUND(12003, "环境建议不存在"),
-    WEATHER_STATION_INVALID(12004, "气象站标识无效");
+    WEATHER_STATION_INVALID(12004, "气象站标识无效"),
+    WEATHER_QUERY_MISSING_DATE(12005, "查询时间参数缺失"),
+    WEATHER_QUERY_DATE_INVALID(12006, "开始时间不能晚于结束时间"),
+    WEATHER_QUERY_RANGE_TOO_LARGE(12007, "查询时间范围不能超过90天");
 
     private final Integer code;
     private final String message;

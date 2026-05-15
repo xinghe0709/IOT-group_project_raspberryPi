@@ -509,6 +509,130 @@ body {
   font-family: inherit;
   line-height: 1;
 }
+
+/* ── Trends Page ── */
+.trends-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.presets {
+  display: flex;
+  gap: 6px;
+}
+
+.preset-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  padding: 7px 14px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.2s ease;
+}
+
+.preset-btn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.preset-btn.active {
+  color: var(--text);
+  background: rgba(255,107,53,0.12);
+  border-color: var(--temp);
+}
+
+.custom-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-sep {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.date-input {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  padding: 6px 10px;
+  letter-spacing: 0.04em;
+  color-scheme: dark;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: var(--text-muted);
+}
+
+.trends-chart-wrap {
+  height: 380px;
+}
+
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .summary-strip { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .summary-strip { grid-template-columns: 1fr; }
+}
+
+.summary-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  border-top: 3px solid var(--border-subtle);
+}
+
+.summary-card.temp  { border-top-color: var(--temp); }
+.summary-card.humid { border-top-color: var(--humid); }
+.summary-card.press { border-top-color: var(--press); }
+.summary-card.light { border-top-color: var(--light); }
+
+.summary-card .summary-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.summary-card .summary-range {
+  font-family: 'Space Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.summary-card .summary-avg {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
 </style>
 </head>
 <body>
@@ -523,6 +647,9 @@ body {
   <ul class="sidebar-nav">
     <li><a href="#" data-page="dashboard" class="active">
       <span class="nav-marker">&#9670;</span> Dashboard
+    </a></li>
+    <li><a href="#" data-page="trends">
+      <span class="nav-marker">&#9672;</span> Trends
     </a></li>
     <li><a href="#" data-page="history">
       <span class="nav-marker">&#9671;</span> Advisories
@@ -599,6 +726,63 @@ body {
       <div class="advisory-summary" id="advisory-summary">Waiting for analysis&hellip;</div>
       <div class="advisory-recommendation" id="advisory-recommendation"></div>
       <div class="advisory-time" id="advisory-time"></div>
+    </div>
+
+  </section>
+
+  <!-- ── Trends Page ── -->
+  <section class="page" id="page-trends">
+
+    <div class="dashboard-header">
+      <h1 class="station-title">Environmental Trends</h1>
+      <div class="station-status">Historical Curves</div>
+    </div>
+
+    <!-- Time Range Controls -->
+    <div class="trends-controls">
+      <div class="presets">
+        <button class="preset-btn active" data-preset="24h">24h</button>
+        <button class="preset-btn" data-preset="7d">7d</button>
+        <button class="preset-btn" data-preset="30d">30d</button>
+      </div>
+      <div class="custom-range">
+        <input type="datetime-local" id="trends-from" class="date-input" title="From">
+        <span class="range-sep">&mdash;</span>
+        <input type="datetime-local" id="trends-to" class="date-input" title="To">
+        <button class="preset-btn" id="trends-apply">Apply</button>
+      </div>
+    </div>
+
+    <!-- Trend Chart -->
+    <div class="chart-card">
+      <div class="chart-title">Combined Trend &middot; Long-term 4-in-1</div>
+      <div class="chart-wrap trends-chart-wrap">
+        <canvas id="trendsChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Summary Strip -->
+    <div class="summary-strip" id="summary-strip">
+      <div class="summary-card temp">
+        <div class="summary-label">Temperature</div>
+        <div class="summary-range" id="sum-temp">-- &ndash; --</div>
+        <div class="summary-avg" id="sum-temp-avg">Avg: --&deg;C</div>
+      </div>
+      <div class="summary-card humid">
+        <div class="summary-label">Humidity</div>
+        <div class="summary-range" id="sum-humid">-- &ndash; --</div>
+        <div class="summary-avg" id="sum-humid-avg">Avg: --%</div>
+      </div>
+      <div class="summary-card press">
+        <div class="summary-label">Pressure</div>
+        <div class="summary-range" id="sum-press">-- &ndash; --</div>
+        <div class="summary-avg" id="sum-press-avg">Avg: --hPa</div>
+      </div>
+      <div class="summary-card light">
+        <div class="summary-label">Ambient Light</div>
+        <div class="summary-range" id="sum-lux">-- &ndash; --</div>
+        <div class="summary-avg" id="sum-lux-avg">Avg: --lux</div>
+      </div>
     </div>
 
   </section>

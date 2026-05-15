@@ -29,6 +29,7 @@
   const loadMoreWrap= $('#load-more-wrap');
   const loadMoreBtn = $('#load-more-btn');
   const pageDash    = $('#page-dashboard');
+  const pageTrends  = $('#page-trends');
   const pageHistory = $('#page-history');
 
   /* ─── State ─── */
@@ -44,6 +45,11 @@
   let currentPage = 0;
   let totalPages = 0;
 
+  /* ─── Trends State ─── */
+  var trendsChart = null;
+  var trendsChartReady = false;
+  var activePreset = '24h';
+
   /* ─── Sidebar Navigation ─── */
   $$('.sidebar-nav a').forEach(function (link) {
     link.addEventListener('click', function (e) {
@@ -58,6 +64,9 @@
       $$('.page').forEach(function (p) { p.classList.remove('active'); });
       if (page === 'dashboard') {
         pageDash.classList.add('active');
+      } else if (page === 'trends') {
+        pageTrends.classList.add('active');
+        initTrendsPage();
       } else if (page === 'history') {
         pageHistory.classList.add('active');
         if (currentPage === 0) loadAdvisoryPage(1);
@@ -402,6 +411,16 @@
         (advisory.riskLevel || 'LOW') + ' — ' + (advisory.summary || ''),
         advisory.riskLevel
       );
+
+      // Prepend to history list if the History page has been loaded at least once
+      if (currentPage > 0 && historyList.children.length > 0) {
+        var card = buildHistoryCard(advisory);
+        if (historyList.firstChild) {
+          historyList.insertBefore(card, historyList.firstChild);
+        } else {
+          historyList.appendChild(card);
+        }
+      }
     } catch (err) {
       console.warn('Failed to parse advisory event:', err);
     }
@@ -507,6 +526,302 @@
       loadMoreBtn.textContent = 'Loading…';
       loadAdvisoryPage(currentPage + 1);
     }
+  });
+
+  /* ─── Trends Page ─── */
+  function initTrendsPage() {
+    if (!trendsChartReady) {
+      createTrendsChart();
+      trendsChartReady = true;
+      loadTrendsFromPreset(activePreset);
+    }
+  }
+
+  function createTrendsChart() {
+    var ctx = $('#trendsChart').getContext('2d');
+    trendsChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Temperature (°C)',
+            data: [],
+            borderColor: '#ff6b35',
+            backgroundColor: 'rgba(255,107,53,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHitRadius: 8,
+            tension: 0.3,
+            yAxisID: 'y',
+            spanGaps: false
+          },
+          {
+            label: 'Humidity (%)',
+            data: [],
+            borderColor: '#4ecdc4',
+            backgroundColor: 'rgba(78,205,196,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHitRadius: 8,
+            tension: 0.3,
+            yAxisID: 'y',
+            spanGaps: false
+          },
+          {
+            label: 'Pressure (hPa)',
+            data: [],
+            borderColor: '#f7dc6f',
+            backgroundColor: 'rgba(247,220,111,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHitRadius: 8,
+            tension: 0.3,
+            yAxisID: 'y',
+            spanGaps: false
+          },
+          {
+            label: 'Light (lux)',
+            data: [],
+            borderColor: '#ffeaa7',
+            backgroundColor: 'rgba(255,234,167,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHitRadius: 8,
+            tension: 0.3,
+            yAxisID: 'y1',
+            spanGaps: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            align: 'start',
+            labels: {
+              boxWidth: 14,
+              boxHeight: 2,
+              padding: 16,
+              color: '#9b8c7d',
+              font: {
+                family: "'DM Mono', monospace",
+                size: 10
+              },
+              usePointStyle: false
+            }
+          },
+          tooltip: {
+            backgroundColor: '#242629',
+            titleColor: '#e8d5c4',
+            bodyColor: '#9b8c7d',
+            borderColor: '#2e3035',
+            borderWidth: 1,
+            titleFont: {
+              family: "'DM Mono', monospace",
+              size: 11
+            },
+            bodyFont: {
+              family: "'Space Mono', monospace",
+              size: 11
+            },
+            callbacks: {
+              title: function (items) {
+                if (items.length === 0) return '';
+                return fmtTimeFull(items[0].label);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            display: true,
+            ticks: {
+              color: '#5d4f42',
+              font: { family: "'DM Mono', monospace", size: 9 },
+              maxTicksLimit: 10,
+              callback: function (_val, index) {
+                var label = trendsChart.data.labels[index];
+                if (!label) return '';
+                // shorter format for trends: Jan 13 08:00
+                var d = new Date(label);
+                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+                  ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+              }
+            },
+            grid: {
+              color: 'rgba(46,48,53,0.5)',
+              drawBorder: false
+            }
+          },
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: {
+              display: true,
+              text: '°C / % / hPa',
+              color: '#9b8c7d',
+              font: { family: "'DM Mono', monospace", size: 9 }
+            },
+            ticks: {
+              color: '#5d4f42',
+              font: { family: "'DM Mono', monospace", size: 9 }
+            },
+            grid: {
+              color: 'rgba(46,48,53,0.5)',
+              drawBorder: false
+            }
+          },
+          y1: {
+            type: 'logarithmic',
+            display: true,
+            position: 'right',
+            title: {
+              display: true,
+              text: 'lux (log)',
+              color: '#9b8c7d',
+              font: { family: "'DM Mono', monospace", size: 9 }
+            },
+            ticks: {
+              color: '#5d4f42',
+              font: { family: "'DM Mono', monospace", size: 9 },
+              callback: function (value) {
+                if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
+                return value;
+              }
+            },
+            grid: { display: false },
+            min: 1
+          }
+        }
+      }
+    });
+  }
+
+  function loadTrendsFromPreset(preset) {
+    activePreset = preset;
+
+    // Update preset button states
+    $$('.preset-btn[data-preset]').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.preset === preset);
+    });
+
+    // Clear custom date inputs
+    $('#trends-from').value = '';
+    $('#trends-to').value = '';
+
+    var now = new Date();
+    var from;
+
+    if (preset === '24h') {
+      from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    } else if (preset === '7d') {
+      from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else {
+      from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    loadTrends(from.toISOString(), now.toISOString());
+  }
+
+  function loadTrends(fromISO, toISO) {
+    fetch('/api/weather/records?from=' + encodeURIComponent(fromISO) + '&to=' + encodeURIComponent(toISO) + '&aggregation=auto')
+      .then(function (res) { return res.json(); })
+      .then(function (result) {
+        if (!result || !result.data) return;
+        renderTrendsData(result.data);
+      })
+      .catch(function (err) {
+        console.warn('Failed to load trends:', err);
+      });
+  }
+
+  function renderTrendsData(buckets) {
+    if (!trendsChart || !Array.isArray(buckets)) return;
+
+    // Clear and repopulate chart data
+    var labels = [];
+    var tempData = [];
+    var humidData = [];
+    var pressData = [];
+    var luxData = [];
+
+    buckets.forEach(function (b) {
+      labels.push(b.bucket);
+      tempData.push(b.temperature);
+      humidData.push(b.humidity);
+      pressData.push(b.pressure);
+      luxData.push(b.lux);
+    });
+
+    trendsChart.data.labels = labels;
+    trendsChart.data.datasets[0].data = tempData;
+    trendsChart.data.datasets[1].data = humidData;
+    trendsChart.data.datasets[2].data = pressData;
+    trendsChart.data.datasets[3].data = luxData;
+    trendsChart.update('none');
+
+    // Update summary strip
+    renderSummary(tempData, 'sum-temp', 'sum-temp-avg', '°C', 1);
+    renderSummary(humidData, 'sum-humid', 'sum-humid-avg', '%', 1);
+    renderSummary(pressData, 'sum-press', 'sum-press-avg', 'hPa', 1);
+    renderSummary(luxData, 'sum-lux', 'sum-lux-avg', 'lux', 0);
+  }
+
+  function renderSummary(data, rangeId, avgId, unit, decimals) {
+    var rangeEl = $('#' + rangeId);
+    var avgEl = $('#' + avgId);
+
+    if (!data || data.length === 0) {
+      rangeEl.textContent = '-- – --';
+      avgEl.textContent = 'Avg: --' + unit;
+      return;
+    }
+
+    var filtered = data.filter(function (v) { return v !== null && v !== undefined; });
+    if (filtered.length === 0) {
+      rangeEl.textContent = '-- – --';
+      avgEl.textContent = 'Avg: --' + unit;
+      return;
+    }
+
+    var min = Math.min.apply(null, filtered);
+    var max = Math.max.apply(null, filtered);
+    var avg = filtered.reduce(function (a, b) { return a + b; }, 0) / filtered.length;
+
+    rangeEl.textContent = min.toFixed(decimals) + ' – ' + max.toFixed(decimals);
+    avgEl.textContent = 'Avg: ' + avg.toFixed(decimals) + unit;
+  }
+
+  /* ─── Trends Event Listeners ─── */
+
+  // Preset buttons
+  $$('.preset-btn[data-preset]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      loadTrendsFromPreset(this.dataset.preset);
+    });
+  });
+
+  // Custom date apply
+  $('#trends-apply').addEventListener('click', function () {
+    var fromVal = $('#trends-from').value;
+    var toVal = $('#trends-to').value;
+    if (!fromVal || !toVal) return;
+
+    // Deselect presets
+    activePreset = null;
+    $$('.preset-btn[data-preset]').forEach(function (btn) {
+      btn.classList.remove('active');
+    });
+
+    loadTrends(new Date(fromVal).toISOString(), new Date(toVal).toISOString());
   });
 
 })();

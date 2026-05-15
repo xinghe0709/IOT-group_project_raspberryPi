@@ -8,11 +8,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.xinghe.AIThermalGuardIoT.common.exception.BusinessException;
 import org.xinghe.AIThermalGuardIoT.common.exception.ErrorCode;
+import org.xinghe.AIThermalGuardIoT.weather.dto.AggregatedRecordDto;
 import org.xinghe.AIThermalGuardIoT.weather.dto.WeatherRecordRequest;
 import org.xinghe.AIThermalGuardIoT.weather.dto.WeatherRecordResponse;
 import org.xinghe.AIThermalGuardIoT.weather.model.WeatherRecord;
 import org.xinghe.AIThermalGuardIoT.weather.repository.WeatherRecordRepository;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Slf4j
@@ -65,6 +68,32 @@ public class WeatherRecordService {
         return repository.findTop20ByOrderByCreatedAtDesc().stream()
             .map(this::toResponse)
             .toList();
+    }
+
+    public List<AggregatedRecordDto> getAggregatedRecords(Instant from, Instant to, String aggregation) {
+        String bucket = resolveAggregation(from, to, aggregation);
+        List<Object[]> rows = "hour".equals(bucket)
+            ? repository.findAggregatedByHour(from, to)
+            : repository.findAggregatedByDay(from, to);
+
+        return rows.stream()
+            .map(row -> new AggregatedRecordDto(
+                (java.sql.Timestamp) row[0] != null ? ((java.sql.Timestamp) row[0]).toInstant() : null,
+                (Double) row[1],
+                (Double) row[2],
+                (Double) row[3],
+                (Double) row[4],
+                (Long) row[5]
+            ))
+            .toList();
+    }
+
+    private String resolveAggregation(Instant from, Instant to, String aggregation) {
+        if (!"auto".equals(aggregation)) {
+            return aggregation;
+        }
+        long days = ChronoUnit.DAYS.between(from, to);
+        return days <= 2 ? "hour" : "day";
     }
 
     private WeatherRecordResponse toResponse(WeatherRecord r) {
