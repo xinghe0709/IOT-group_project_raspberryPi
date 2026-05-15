@@ -16,23 +16,15 @@ import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.retry.RetryUtils;
-import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.xinghe.AIThermalGuardIoT.common.config.LlmProviderProperties;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.springaicommunity.agent.tools.FileSystemTools;
-import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.definition.DefaultToolDefinition;
-import org.springframework.ai.tool.method.MethodToolCallback;
 
 /**
  * Registry for managing and caching LLM providers.
@@ -47,8 +39,6 @@ public class LlmProviderRegistry {
     private final Map<String, EmbeddingModel> embeddingModelCache = new ConcurrentHashMap<>();
     private final ToolCallingManager toolCallingManager;
     private final ObservationRegistry observationRegistry;
-    private final ToolCallback visaSkillsToolCallback;
-    private final FileSystemTools fileSystemTools;
     private static final Map<String, String> RECOMMENDED_EMBEDDING_MODELS = Map.of(
         "dashscope", "text-embedding-v3",
         "glm", "embedding-3",
@@ -57,27 +47,14 @@ public class LlmProviderRegistry {
         "minimax", "embo-01"
     );
 
-    /**
-     * 创建运行时主构造器，支持从数据库读取 Provider 配置并注入工具调用相关组件。
-     *
-     * @param properties LLM Provider 全量配置属性
-     * @param toolCallingManager 工具调用管理器，可选；缺失时跳过 ToolCallAdvisor
-     * @param observationRegistry 可观测性注册器，可选；缺失时使用 NOOP
-     * @param visaSkillsToolCallback 技能工具回调，可选；缺失时不挂载默认工具回调
-     * @param fileSystemTools 文件系统工具，可选；缺失时不注册文件读写工具
-     */
     @Autowired
     public LlmProviderRegistry(
             LlmProviderProperties properties,
             @Autowired(required = false) ToolCallingManager toolCallingManager,
-            @Autowired(required = false) ObservationRegistry observationRegistry,
-            @Autowired(required = false) @Qualifier("visaSkillsToolCallback") ToolCallback visaSkillsToolCallback,
-            @Autowired(required = false) @Qualifier("visaFileSystemToolsCallback") FileSystemTools fileSystemTools) {
+            @Autowired(required = false) ObservationRegistry observationRegistry) {
         this.properties = properties;
         this.toolCallingManager = toolCallingManager;
         this.observationRegistry = observationRegistry;
-        this.visaSkillsToolCallback = visaSkillsToolCallback;
-        this.fileSystemTools = fileSystemTools;
     }
 
 
@@ -108,19 +85,6 @@ public class LlmProviderRegistry {
         OpenAiChatModel chatModel = buildChatModel(providerId);
 
         ChatClient.Builder builder = ChatClient.builder(chatModel);
-        if (visaSkillsToolCallback != null) {
-            builder.defaultToolCallbacks(visaSkillsToolCallback);
-        }
-        if (fileSystemTools != null) {
-            try {
-                List<ToolCallback> fsCallbacks = createFileSystemToolCallbacks(fileSystemTools);
-                builder.defaultToolCallbacks(fsCallbacks.toArray(new ToolCallback[0]));
-                log.info("[LlmProviderRegistry] Registered {} FileSystemTools callbacks for provider {}",
-                    fsCallbacks.size(), providerId);
-            } catch (Exception e) {
-                log.warn("[LlmProviderRegistry] Failed to register FileSystemTools callbacks: {}", e.getMessage());
-            }
-        }
         List<Advisor> advisors = buildDefaultAdvisors(providerId);
         if (!advisors.isEmpty()) {
             builder.defaultAdvisors(advisors.toArray(new Advisor[0]));
@@ -130,32 +94,6 @@ public class LlmProviderRegistry {
         return builder.build();
     }
 
-
-    /**
-     * 将 {@link FileSystemTools} 实例上标注了 {@link Tool} 的方法转换为 {@link ToolCallback} 列表。
-     * <p>
-     * Agent 可通过这些回调按需读取 skill 下 references/ 目录中的参考文件。
-     */
-    private static List<ToolCallback> createFileSystemToolCallbacks(FileSystemTools fsTools) {
-        return Arrays.stream(FileSystemTools.class.getDeclaredMethods())
-            .filter(m -> m.isAnnotationPresent(Tool.class))
-            .<ToolCallback>map(m -> {
-                Tool toolAnn = m.getAnnotation(Tool.class);
-                String name = !toolAnn.name().isEmpty() ? toolAnn.name() : m.getName();
-                String desc = !toolAnn.description().isEmpty() ? toolAnn.description() : m.getName();
-                var toolDef = DefaultToolDefinition.builder()
-                    .name(name)
-                    .description(desc)
-                    .inputSchema("{\"type\":\"object\",\"properties\":{}}")
-                    .build();
-                return MethodToolCallback.builder()
-                    .toolDefinition(toolDef)
-                    .toolObject(fsTools)
-                    .toolMethod(m)
-                    .build();
-            })
-            .toList();
-    }
 
     /**
      * 基于LlmProviderProperties构建底层 {@link OpenAiChatModel}。

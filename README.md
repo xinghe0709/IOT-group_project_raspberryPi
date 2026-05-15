@@ -6,10 +6,7 @@ Spring Boot 4.0 backend server for the PiicoDev Weather Station — receives sen
 
 - **Java 21**
 - **PostgreSQL** (localhost:5432)
-- **Redis** (localhost:6379)
 - **DeepSeek API Key** (free, sign up at [platform.deepseek.com](https://platform.deepseek.com))
-
-S3-compatible storage (MinIO / RustFS) is optional — the server starts without it.
 
 ## Quick Start
 
@@ -37,17 +34,14 @@ PROVIDER_DEEPSEEK_API_KEY=sk-your-key-here
 PROVIDER_DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
-### Database (defaults work if you use the docker-compose values below)
+### Database
 
 ```bash
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DB=interview_guide
+POSTGRES_DB=weather_station
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=123456
-
-REDIS_HOST=localhost
-REDIS_PORT=6379
 ```
 
 ### Optional — Additional LLM Providers
@@ -63,20 +57,12 @@ PROVIDER_KIMI_API_KEY=sk-your-key
 PROVIDER_GLM_API_KEY=your-key
 ```
 
-### Optional — S3 Storage (MinIO / RustFS)
-
-```bash
-APP_STORAGE_ENDPOINT=http://localhost:9000
-APP_STORAGE_ACCESS_KEY=minioadmin
-APP_STORAGE_SECRET_KEY=minioadmin
-APP_STORAGE_BUCKET=interview-guide
-```
-
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/weather/record` | Receive sensor data from Raspberry Pi |
+| `GET` | `/api/weather/records?from=&to=&aggregation=` | Aggregated historical data (hourly/daily) |
 | `GET` | `/api/weather/advisories?page=1&size=20` | Paginated AI advisory history |
 | `GET` | `/api/weather/stream` | SSE real-time stream (init / update / advisory events) |
 | `GET` | `/dashboard.html` | Real-time dashboard with Chart.js |
@@ -114,8 +100,7 @@ A shell script in the project root simulates a Raspberry Pi sending data through
     ├── .env                      # Secrets (gitignored)
     └── src/
         ├── main/java/org/xinghe/AIThermalGuardIoT/
-        │   ├── common/           # AI, async, exception, result wrappers
-        │   ├── infrastructure/   # Redis, S3, file services
+        │   ├── common/           # AI, config, exception, result wrappers
         │   └── weather/          # Weather module
         │       ├── controller/   # REST + SSE endpoints
         │       ├── dto/          # Request/response records
@@ -142,3 +127,4 @@ Tests that call the LLM need a valid `PROVIDER_DEEPSEEK_API_KEY` in `.env`.
 - **Data flow**: Raspberry Pi → `POST /api/weather/record` → PostgreSQL → `AdvisoryScheduler` (every 2 min) → DeepSeek LLM → `weather_advisories` table → SSE broadcast to dashboard
 - **SSE events**: `init` (recent 20 records), `update` (each new record), `advisory` (each AI analysis)
 - **AI**: Prompt-template based structured output via `BeanOutputConverter<AdvisoryOutput>`, with automatic retry and JSON repair
+- **Runtime dependency**: PostgreSQL only — Redis, S3, and other infrastructure have been removed as unnecessary for weather station operation
