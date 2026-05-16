@@ -1,12 +1,12 @@
 # AIThermalGuardIoT
 
-Spring Boot 4.0 backend server for the PiicoDev Weather Station — receives sensor data from Raspberry Pi, persists to PostgreSQL, generates AI-powered safety advisories via Spring AI (DeepSeek), and serves a real-time dashboard with SSE + Chart.js.
+Spring Boot 4.0 backend server for the PiicoDev Weather Station — receives sensor data from Raspberry Pi, persists to PostgreSQL, generates AI-powered safety advisories via Spring AI, and serves a real-time dashboard with SSE + Chart.js.
 
 ## Requirements
 
 - **Java 21**
 - **PostgreSQL** (localhost:5432)
-- **DeepSeek API Key** (free, sign up at [platform.deepseek.com](https://platform.deepseek.com))
+- **LLM API Key** — any OpenAI-compatible provider (DeepSeek, GLM, Kimi, DashScope, etc.)
 
 ## Quick Start
 
@@ -29,7 +29,7 @@ Create `AIThermalGuardIoT/.env` with the following variables. The `bootRun` and 
 ### Required
 
 ```bash
-# DeepSeek API Key — get one free at https://platform.deepseek.com/
+# LLM API Key — set at least one provider
 PROVIDER_DEEPSEEK_API_KEY=sk-your-key-here
 PROVIDER_DEEPSEEK_MODEL=deepseek-v4-flash
 ```
@@ -196,11 +196,11 @@ cd AIThermalGuardIoT
 ./gradlew test --tests "org.xinghe.AIThermalGuardIoT.weather.service.AdvisoryPromptTemplateTest"
 ```
 
-Tests that call the LLM need a valid `PROVIDER_DEEPSEEK_API_KEY` in `.env`.
+Tests that call the LLM need a valid API key configured in `.env`.
 
 ## Architecture
 
-- **Data flow**: Raspberry Pi → `POST /api/weather/record` → PostgreSQL → `AdvisoryScheduler` (every 2 min) → DeepSeek LLM → `weather_advisories` table → SSE broadcast to dashboard
+- **Data flow**: Raspberry Pi → `POST /api/weather/record` → PostgreSQL → `AdvisoryScheduler` (every 2 min) → LLM → `weather_advisories` table → SSE broadcast to dashboard
 - **SSE events**: `init` (recent 20 records), `update` (each new record), `advisory` (each AI analysis)
 - **AI**: Prompt-template based structured output via `BeanOutputConverter<AdvisoryOutput>`, with automatic retry and JSON repair
 - **Runtime dependency**: PostgreSQL only — Redis, S3, and other infrastructure have been removed as unnecessary for weather station operation
