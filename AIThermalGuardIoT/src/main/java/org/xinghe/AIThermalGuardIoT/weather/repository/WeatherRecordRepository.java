@@ -45,4 +45,6 @@ public interface WeatherRecordRepository extends JpaRepository<WeatherRecord, Lo
         ORDER BY bucket ASC
         """, nativeQuery = true)
     List<Object[]> findAggregatedByDay(@Param("from") Instant from, @Param("to") Instant to);
+
+    List<WeatherRecord> findTop300ByCreatedAtBetweenOrderByCreatedAtAsc(Instant from, Instant to);
 }

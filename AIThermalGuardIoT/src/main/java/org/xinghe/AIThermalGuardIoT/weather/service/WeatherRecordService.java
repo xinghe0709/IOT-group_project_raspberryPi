@@ -97,6 +97,22 @@ public class WeatherRecordService {
 
     public List<AggregatedRecordDto> getAggregatedRecords(Instant from, Instant to, String aggregation) {
         String bucket = resolveAggregation(from, to, aggregation);
+
+        if ("none".equals(bucket)) {
+            return repository.findTop300ByCreatedAtBetweenOrderByCreatedAtAsc(from, to)
+                .stream()
+                .map(r -> new AggregatedRecordDto(
+                    r.getCreatedAt(),
+                    r.getTemperature(),
+                    r.getHumidity(),
+                    r.getPressure(),
+                    r.getLux(),
+                    r.getHeatIndex(),
+                    1L
+                ))
+                .toList();
+        }
+
         List<Object[]> rows = "hour".equals(bucket)
             ? repository.findAggregatedByHour(from, to)
             : repository.findAggregatedByDay(from, to);
@@ -136,6 +152,8 @@ public class WeatherRecordService {
         if (!"auto".equals(aggregation)) {
             return aggregation;
         }
+        long hours = ChronoUnit.HOURS.between(from, to);
+        if (hours <= 2) return "none";
         long days = ChronoUnit.DAYS.between(from, to);
         return days <= 2 ? "hour" : "day";
     }
