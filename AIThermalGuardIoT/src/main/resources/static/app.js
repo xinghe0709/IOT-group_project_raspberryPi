@@ -209,7 +209,7 @@
           pointRadius: 0,
           pointHitRadius: 8,
           tension: 0.3,
-          yAxisID: 'y',
+          yAxisID: 'y1',
           spanGaps: false
         },
         {
@@ -305,7 +305,7 @@
           position: 'left',
           title: {
             display: true,
-            text: '°C / % / hPa',
+            text: '°C / %',
             color: '#9b8c7d',
             font: { family: "'DM Mono', monospace", size: 9 }
           },
@@ -324,7 +324,7 @@
           position: 'right',
           title: {
             display: true,
-            text: 'lux (log)',
+            text: 'hPa / lux (log)',
             color: '#9b8c7d',
             font: { family: "'DM Mono', monospace", size: 9 }
           },
@@ -643,7 +643,7 @@
             pointRadius: 0,
             pointHitRadius: 8,
             tension: 0.3,
-            yAxisID: 'y',
+            yAxisID: 'y1',
             spanGaps: false
           },
           {
@@ -744,7 +744,7 @@
             position: 'left',
             title: {
               display: true,
-              text: '°C / % / hPa',
+              text: '°C / %',
               color: '#9b8c7d',
               font: { family: "'DM Mono', monospace", size: 9 }
             },
@@ -763,7 +763,7 @@
             position: 'right',
             title: {
               display: true,
-              text: 'lux (log)',
+              text: 'hPa / lux (log)',
               color: '#9b8c7d',
               font: { family: "'DM Mono', monospace", size: 9 }
             },
