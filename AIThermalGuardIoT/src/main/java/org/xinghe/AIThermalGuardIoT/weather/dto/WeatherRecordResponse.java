@@ -13,6 +13,7 @@ public class WeatherRecordResponse {
     private Double humidity;
     private Double pressure;
     private Double lux;
+    private Double heatIndex;
     private String alerts;
     private Instant createdAt;
 }

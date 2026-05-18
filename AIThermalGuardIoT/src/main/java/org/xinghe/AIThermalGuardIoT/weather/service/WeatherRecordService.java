@@ -16,6 +16,7 @@ import org.xinghe.AIThermalGuardIoT.weather.repository.WeatherRecordRepository;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -27,13 +28,20 @@ public class WeatherRecordService {
     private final SseBroadcastService broadcastService;
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // Alert thresholds — evaluated server-side, ignoring Pi-computed alerts
+    private static final double HEAT_INDEX_HIGH = 41.0;
+    private static final double TEMP_LOW        = 5.0;
+    private static final double HUMIDITY_HIGH   = 65.0;
+    private static final double PRESSURE_LOW    = 1000.0;
+    private static final double LUX_HIGH        = 50000.0;
+
     @Transactional
     public WeatherRecordResponse saveRecord(WeatherRecordRequest request) {
+        // Server-side alert evaluation — ignores Pi-computed alerts entirely
+        List<String> alerts = evaluateAlerts(request);
         String alertsJson;
         try {
-            alertsJson = request.getAlerts() != null && !request.getAlerts().isEmpty()
-                ? objectMapper.writeValueAsString(request.getAlerts())
-                : "[]";
+            alertsJson = objectMapper.writeValueAsString(alerts);
         } catch (JsonProcessingException e) {
             alertsJson = "[]";
         }
@@ -44,6 +52,8 @@ public class WeatherRecordService {
             .humidity(request.getHumidity())
             .pressure(request.getPressure())
             .lux(request.getLux())
+            .heatIndex(request.getHeatIndex())
+            .heatStressCategory(request.getHeatStressCategory())
             .alerts(alertsJson)
             .build();
 
@@ -70,6 +80,21 @@ public class WeatherRecordService {
             .toList();
     }
 
+    private List<String> evaluateAlerts(WeatherRecordRequest request) {
+        List<String> alerts = new ArrayList<>();
+        if (request.getHeatIndex() != null && request.getHeatIndex() >= HEAT_INDEX_HIGH)
+            alerts.add("HIGH_HEAT_INDEX:" + request.getHeatIndex());
+        if (request.getTemperature() != null && request.getTemperature() <= TEMP_LOW)
+            alerts.add("LOW_TEMP:" + request.getTemperature());
+        if (request.getHumidity() != null && request.getHumidity() >= HUMIDITY_HIGH)
+            alerts.add("HIGH_HUMIDITY:" + request.getHumidity());
+        if (request.getPressure() != null && request.getPressure() <= PRESSURE_LOW)
+            alerts.add("LOW_PRESSURE:" + request.getPressure());
+        if (request.getLux() != null && request.getLux() >= LUX_HIGH)
+            alerts.add("HIGH_LUX:" + request.getLux());
+        return alerts;
+    }
+
     public List<AggregatedRecordDto> getAggregatedRecords(Instant from, Instant to, String aggregation) {
         String bucket = resolveAggregation(from, to, aggregation);
         List<Object[]> rows = "hour".equals(bucket)
@@ -83,7 +108,8 @@ public class WeatherRecordService {
                 toDouble(row[2]),
                 toDouble(row[3]),
                 toDouble(row[4]),
-                toLong(row[5])
+                toDouble(row[5]),
+                toLong(row[6])
             ))
             .toList();
     }
@@ -122,6 +148,7 @@ public class WeatherRecordService {
             .humidity(r.getHumidity())
             .pressure(r.getPressure())
             .lux(r.getLux())
+            .heatIndex(r.getHeatIndex())
             .alerts(r.getAlerts())
             .createdAt(r.getCreatedAt())
             .build();

@@ -33,6 +33,12 @@ public class WeatherRecord {
     @Column
     private Double lux;
 
+    @Column(name = "heat_index")
+    private Double heatIndex;
+
+    @Column(name = "heat_stress_category", length = 50)
+    private String heatStressCategory;
+
     @Column(length = 500)
     private String alerts;
 

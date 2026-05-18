@@ -16,6 +16,7 @@
   const valHumid    = $('#val-humid');
   const valPress    = $('#val-press');
   const valLux      = $('#val-lux');
+  const valHeat     = $('#val-heat');
   const advisoryCard= $('#latest-advisory');
   const advRisk     = $('#advisory-risk');
   const advSummary  = $('#advisory-summary');
@@ -39,7 +40,8 @@
     temp: [],
     humidity: [],
     pressure: [],
-    lux: []
+    lux: [],
+    heatIndex: []
   };
 
   let currentPage = 0;
@@ -131,6 +133,7 @@
     valHumid.textContent = fmtNum(record.humidity, 1);
     valPress.textContent = fmtNum(record.pressure, 1);
     valLux.textContent   = fmtNum(record.lux, 0);
+    valHeat.textContent  = fmtNum(record.heatIndex, 1);
   }
 
   /* ─── Update Alerts Bar ─── */
@@ -219,6 +222,18 @@
           pointHitRadius: 8,
           tension: 0.3,
           yAxisID: 'y1',
+          spanGaps: false
+        },
+        {
+          label: 'Heat Index (°C)',
+          data: chartData.heatIndex,
+          borderColor: '#eb6b7f',
+          backgroundColor: 'rgba(235,107,127,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHitRadius: 8,
+          tension: 0.3,
+          yAxisID: 'y',
           spanGaps: false
         }
       ]
@@ -337,6 +352,7 @@
     chartData.humidity.push(record.humidity);
     chartData.pressure.push(record.pressure);
     chartData.lux.push(record.lux);
+    chartData.heatIndex.push(record.heatIndex);
 
     // Trim to max points
     while (chartLabels.length > MAX_CHART_POINTS) {
@@ -345,6 +361,7 @@
       chartData.humidity.shift();
       chartData.pressure.shift();
       chartData.lux.shift();
+      chartData.heatIndex.shift();
     }
 
     trendChart.update('none'); // quiet update, no animation jank
@@ -357,6 +374,7 @@
     chartData.humidity.length = 0;
     chartData.pressure.length = 0;
     chartData.lux.length = 0;
+    chartData.heatIndex.length = 0;
 
     if (!Array.isArray(records)) return;
 
@@ -371,6 +389,7 @@
       chartData.humidity.push(r.humidity);
       chartData.pressure.push(r.pressure);
       chartData.lux.push(r.lux);
+      chartData.heatIndex.push(r.heatIndex);
     });
 
     trendChart.update('none');
@@ -572,6 +591,7 @@
     trendsChart.data.datasets[1].data.push(record.humidity);
     trendsChart.data.datasets[2].data.push(record.pressure);
     trendsChart.data.datasets[3].data.push(record.lux);
+    trendsChart.data.datasets[4].data.push(record.heatIndex);
 
     // Trim based on active preset (keep roughly 2x the expected points)
     var maxPoints = activePreset === '1h' ? 120 : activePreset === '7d' ? 200 : 100;
@@ -636,6 +656,18 @@
             pointHitRadius: 8,
             tension: 0.3,
             yAxisID: 'y1',
+            spanGaps: false
+          },
+          {
+            label: 'Heat Index (°C)',
+            data: [],
+            borderColor: '#eb6b7f',
+            backgroundColor: 'rgba(235,107,127,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHitRadius: 8,
+            tension: 0.3,
+            yAxisID: 'y',
             spanGaps: false
           }
         ]
@@ -813,10 +845,10 @@
   }
 
   function resetSummary() {
-    ['sum-temp','sum-humid','sum-press','sum-lux'].forEach(function (id) {
+    ['sum-temp','sum-humid','sum-press','sum-lux','sum-heat'].forEach(function (id) {
       $('#' + id).textContent = '-- – --';
     });
-    ['sum-temp-avg','sum-humid-avg','sum-press-avg','sum-lux-avg'].forEach(function (id) {
+    ['sum-temp-avg','sum-humid-avg','sum-press-avg','sum-lux-avg','sum-heat-avg'].forEach(function (id) {
       $('#' + id).textContent = 'Avg: --';
     });
   }
@@ -831,6 +863,7 @@
     var humidData = [];
     var pressData = [];
     var luxData = [];
+    var heatData = [];
 
     buckets.forEach(function (b) {
       labels.push(b.bucket);
@@ -838,6 +871,7 @@
       humidData.push(b.humidity);
       pressData.push(b.pressure);
       luxData.push(b.lux);
+      heatData.push(b.heatIndex);
     });
 
     trendsChart.data.labels = labels;
@@ -845,6 +879,7 @@
     trendsChart.data.datasets[1].data = humidData;
     trendsChart.data.datasets[2].data = pressData;
     trendsChart.data.datasets[3].data = luxData;
+    trendsChart.data.datasets[4].data = heatData;
     trendsChart.update('none');
 
     // Update summary strip
@@ -852,6 +887,7 @@
     renderSummary(humidData, 'sum-humid', 'sum-humid-avg', '%', 1);
     renderSummary(pressData, 'sum-press', 'sum-press-avg', 'hPa', 1);
     renderSummary(luxData, 'sum-lux', 'sum-lux-avg', 'lux', 0);
+    renderSummary(heatData, 'sum-heat', 'sum-heat-avg', '°C', 1);
   }
 
   function renderSummary(data, rangeId, avgId, unit, decimals) {

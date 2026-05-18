@@ -29,6 +29,7 @@
   --humid:   #4ecdc4;
   --press:   #f7dc6f;
   --light:   #ffeaa7;
+  --heat:    #eb6b7f;
 
   --risk-low:      #27ae60;
   --risk-moderate: #f39c12;
@@ -211,16 +212,16 @@ body {
 /* ── Reading Cards Grid ── */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   margin-bottom: 22px;
 }
 
-@media (max-width: 900px) {
-  .cards-grid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 1000px) {
+  .cards-grid { grid-template-columns: repeat(3, 1fr); }
 }
-@media (max-width: 560px) {
-  .cards-grid { grid-template-columns: 1fr; }
+@media (max-width: 640px) {
+  .cards-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 .reading-card {
@@ -270,10 +271,12 @@ body {
 .reading-card.humid .card-stripe { background: var(--humid); }
 .reading-card.press .card-stripe { background: var(--press); }
 .reading-card.light .card-stripe { background: var(--light); }
+.reading-card.heat .card-stripe  { background: var(--heat); }
 .reading-card.temp .card-value  { color: var(--temp); }
 .reading-card.humid .card-value { color: var(--humid); }
 .reading-card.press .card-value { color: var(--press); }
 .reading-card.light .card-value { color: var(--light); }
+.reading-card.heat .card-value  { color: var(--heat); }
 
 /* ── Chart Card ── */
 .chart-card {
@@ -584,16 +587,16 @@ body {
 
 .summary-strip {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
   margin-top: 18px;
 }
 
-@media (max-width: 900px) {
-  .summary-strip { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 1000px) {
+  .summary-strip { grid-template-columns: repeat(3, 1fr); }
 }
-@media (max-width: 560px) {
-  .summary-strip { grid-template-columns: 1fr; }
+@media (max-width: 640px) {
+  .summary-strip { grid-template-columns: repeat(2, 1fr); }
 }
 
 .summary-card {
@@ -608,6 +611,7 @@ body {
 .summary-card.humid { border-top-color: var(--humid); }
 .summary-card.press { border-top-color: var(--press); }
 .summary-card.light { border-top-color: var(--light); }
+.summary-card.heat  { border-top-color: var(--heat); }
 
 .summary-card .summary-label {
   font-family: 'DM Mono', monospace;
@@ -707,6 +711,12 @@ body {
         <div class="card-value" id="val-lux">--</div>
         <div class="card-unit">lux</div>
       </div>
+      <div class="reading-card heat">
+        <div class="card-stripe"></div>
+        <div class="card-label">Heat Index</div>
+        <div class="card-value" id="val-heat">--</div>
+        <div class="card-unit">&deg;C</div>
+      </div>
     </div>
 
     <!-- Trend Chart -->
@@ -774,6 +784,11 @@ body {
         <div class="summary-label">Ambient Light</div>
         <div class="summary-range" id="sum-lux">-- &ndash; --</div>
         <div class="summary-avg" id="sum-lux-avg">Avg: --lux</div>
+      </div>
+      <div class="summary-card heat">
+        <div class="summary-label">Heat Index</div>
+        <div class="summary-range" id="sum-heat">-- &ndash; --</div>
+        <div class="summary-avg" id="sum-heat-avg">Avg: --&deg;C</div>
       </div>
     </div>
 

@@ -14,5 +14,9 @@ public class WeatherRecordRequest {
     private Double humidity;
     private Double pressure;
     private Double lux;
+    @JsonProperty("heat_index")
+    private Double heatIndex;
+    @JsonProperty("heat_stress_category")
+    private String heatStressCategory;
     private List<String> alerts;
 }

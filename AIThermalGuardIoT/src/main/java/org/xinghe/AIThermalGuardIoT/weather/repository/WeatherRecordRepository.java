@@ -21,6 +21,7 @@ public interface WeatherRecordRepository extends JpaRepository<WeatherRecord, Lo
             AVG(humidity) AS humidity,
             AVG(pressure) AS pressure,
             AVG(lux) AS lux,
+            AVG(heat_index) AS heat_index,
             CAST(COUNT(*) AS BIGINT) AS count
         FROM weather_records
         WHERE created_at >= :from AND created_at <= :to
@@ -36,6 +37,7 @@ public interface WeatherRecordRepository extends JpaRepository<WeatherRecord, Lo
             AVG(humidity) AS humidity,
             AVG(pressure) AS pressure,
             AVG(lux) AS lux,
+            AVG(heat_index) AS heat_index,
             CAST(COUNT(*) AS BIGINT) AS count
         FROM weather_records
         WHERE created_at >= :from AND created_at <= :to

@@ -8,5 +8,6 @@ public record AggregatedRecordDto(
     Double humidity,
     Double pressure,
     Double lux,
+    Double heatIndex,
     Long count
 ) {}
