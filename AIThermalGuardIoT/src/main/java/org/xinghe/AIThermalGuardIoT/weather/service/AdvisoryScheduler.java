@@ -42,7 +42,7 @@ public class AdvisoryScheduler {
         }
 
         String userPrompt = buildPrompt(latest);
-        ChatClient chatClient = llmProviderRegistry.getChatClient("deepseek");
+        ChatClient chatClient = llmProviderRegistry.getChatClient("dashscope");
         BeanOutputConverter<AdvisoryOutput> converter = new BeanOutputConverter<>(AdvisoryOutput.class);
 
         try {
