@@ -14,6 +14,7 @@ import org.xinghe.AIThermalGuardIoT.weather.dto.WeatherRecordResponse;
 import org.xinghe.AIThermalGuardIoT.weather.model.WeatherRecord;
 import org.xinghe.AIThermalGuardIoT.weather.repository.WeatherRecordRepository;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -26,7 +27,13 @@ public class WeatherRecordService {
 
     private final WeatherRecordRepository repository;
     private final SseBroadcastService broadcastService;
+    private final AdvisoryScheduler advisoryScheduler;
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    // Emergency LLM trigger: heat_index ≥ 40.5°C fires an immediate advisory, max once per minute
+    private static final double EMERGENCY_HEAT_INDEX = 40.5;
+    private static final Duration EMERGENCY_COOLDOWN = Duration.ofMinutes(1);
+    private volatile Instant lastEmergencyCall;
 
     // Alert thresholds — evaluated server-side, ignoring Pi-computed alerts
     private static final double HEAT_INDEX_HIGH = 41.0;
@@ -62,6 +69,21 @@ public class WeatherRecordService {
         } catch (Exception e) {
             log.error("Failed to save weather record: {}", e.getMessage(), e);
             throw new BusinessException(ErrorCode.WEATHER_RECORD_SAVE_FAILED);
+        }
+
+        // Emergency advisory: fire LLM call if heat_index crosses 40.5°C and cooldown has elapsed
+        Instant now = Instant.now();
+        if (request.getHeatIndex() != null
+            && request.getHeatIndex() >= EMERGENCY_HEAT_INDEX
+            && (lastEmergencyCall == null
+                || Duration.between(lastEmergencyCall, now).compareTo(EMERGENCY_COOLDOWN) >= 0)) {
+            lastEmergencyCall = now;
+            log.warn("Emergency heat advisory triggered: heat_index={}", request.getHeatIndex());
+            try {
+                advisoryScheduler.generateAdvisory();
+            } catch (Exception e) {
+                log.error("Emergency advisory failed: {}", e.getMessage(), e);
+            }
         }
 
         WeatherRecordResponse response = toResponse(record);
